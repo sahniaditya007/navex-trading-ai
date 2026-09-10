@@ -1,0 +1,239 @@
+============================================================
+NAVEX — REUSED FROM CRYPTO-PILOT
+============================================================
+
+Original repository:
+Crypto-Pilot-AI-Models
+
+New repository:
+navex-trading-ai
+
+Purpose:
+Document all code, logic, architecture patterns, and ideas
+reused or adapted from the previous project.
+
+------------------------------------------------------------
+1. COMPONENT: Order-Book Feature Extraction
+------------------------------------------------------------
+
+Original path:
+src/iceberg/iceberg_detector.py (lines 93-134)
+
+Reused functionality:
+Order-book depth feature extraction, volume imbalance, and level imbalance.
+
+Used in new path:
+backend/services/market_data/microstructure.py
+
+Reuse type:
+ADAPTED
+
+What was retained:
+- Bid/ask average size calculations
+- Bid/ask price spread calculations
+- Bid/ask volume imbalance ratio: (bid_vol - ask_vol) / (bid_vol + ask_vol)
+- Level imbalance ratio: (bid_levels - ask_levels) / (bid_levels + ask_levels)
+- Standard deviation of order sizes
+- Whale / large order detection (> 2x average order size)
+
+What was changed:
+- Removed all dependencies on TensorFlow / Keras deep learning models
+- Removed synthetic Gaussian noise pseudo-labeling
+- Replaced untyped numeric list returns with a strongly typed Pydantic schema (MicrostructureFeatures)
+- Added synthetic order-book depth generator for offline demo resilience
+- Integrated directly as structured context for the AI Analyst Agent
+
+Why reused:
+Order book microstructure provides high-value quantitative depth context
+(liquidity absorption and bid/ask walls) that significantly enhances the LLM's
+reasoning about breakout follow-through and support/resistance validity.
+
+------------------------------------------------------------
+2. COMPONENT: Public Exchange Order-Book Connection Pattern
+------------------------------------------------------------
+
+Original path:
+src/arbitrage/fetch_order_book.py (lines 1-15)
+
+Reused functionality:
+Public, read-only exchange connection pattern using public endpoints.
+
+Used in new path:
+backend/services/market_data/feed.py & backend/services/market_data/microstructure.py
+
+Reuse type:
+ADAPTED
+
+What was retained:
+- Read-only public market data fetching concept without private exchange trading keys.
+- Rate-limited polling pattern.
+
+What was changed:
+- Removed ccxt dependency to avoid unlisted runtime dependency issues.
+- Switched to standard, lightweight HTTP requests to public Binance endpoints (`/api/v3/klines`).
+- Added robust, seamless fallback to deterministic historical datasets so the demo NEVER fails if offline.
+
+Why reused:
+Clean conceptual pattern for zero-risk, read-only public market data.
+
+------------------------------------------------------------
+3. COMPONENT: News Text Preprocessing & Cleaning
+------------------------------------------------------------
+
+Original path:
+src/sentiment/sentiment_analysis.py (lines 50-92)
+
+Reused functionality:
+Regex-based URL stripping and special character sanitization.
+
+Used in new path:
+backend/services/news/news_service.py
+
+Reuse type:
+ADAPTED
+
+What was retained:
+- Regex compiled patterns for removing URLs (`http\S+|www\S+|https\S+`).
+- Special character pattern stripping and whitespace normalization.
+
+What was changed:
+- Removed NLTK lemmatizer and TextBlob dependencies which suffered from missing corpus download crashes.
+- Shifted purpose from naive scalar polarity scoring (-1.0 to +1.0) to contextual headline formatting
+  for LLM semantic evaluation.
+- Output typed `NewsItem` objects (headline, source, summary, relevance, sentiment_hint).
+
+Why reused:
+Sanitizing headlines prevents raw prompt injection, cleans token clutter, and improves LLM reasoning efficiency.
+
+------------------------------------------------------------
+4. COMPONENT: Deterministic Demo Fallback Pattern
+------------------------------------------------------------
+
+Original path:
+main.py (lines 305-355)
+
+Reused functionality:
+Graceful fallback to deterministic mock data when live exchange APIs are unreachable.
+
+Used in new path:
+backend/services/market_data/feed.py & backend/simulation/replay_engine.py
+
+Reuse type:
+ADAPTED
+
+What was retained:
+- The architectural principle that a technical evaluation must NEVER fail due to third-party network outages.
+
+What was changed:
+- Replaced static, hardcoded single-row recommendation dictionaries with full historical OHLCV bar series.
+- Created an interactive, controllable bar-by-bar Replay Engine (`ReplayEngine`) rather than a static JSON response.
+- Added 3 realistic market scenarios: Bull Breakout (win), Bear Breakdown (win), and Failed Breakout (stop loss).
+
+Why reused:
+Guarantees 100% demo reliability during live interview evaluations.
+
+============================================================
+DO NOT REUSE (INSPECTED AND DELIBERATELY REJECTED)
+============================================================
+
+1. Rejected: `src/arbitrage/arbitrage_checker.py`
+   Reason:
+   - Contains live order execution (`exchange.create_limit_order()`) using real money.
+   - Contains a hardcoded AWS Secrets Manager ARN with real AWS Account ID (`799854597846`),
+     causing immediate crashes on machines without active AWS credentials.
+   - Uses blocking terminal `input()` inside a WebSocket loop, freezing execution.
+   - Strictly violates Rule 8 ("NEVER use live trading") and Rule 10 ("Simulated evaluation only").
+
+2. Rejected: `src/sentiment/model_training.py`
+   Reason:
+   - Expects a `target` column in `data/historical_data.json` that is never generated, causing `ValueError`.
+   - Produces offline pickled Random Forest models that are never utilized in live execution.
+   - NAVEX evaluates LLM reasoning and trade decisions, not offline tabular Random Forests.
+
+3. Rejected: `src/sentiment/prediction_generation.py`
+   Reason:
+   - Line 228 contains a fatal type indexing bug: attempts `trends['price_trends']` on a list,
+     throwing `TypeError: list indices must be integers or slices`.
+   - Swallows all exceptions silently with `except Exception: continue`, returning empty arrays.
+   - Relies on pickled scikit-learn models (`models/model_*.pkl`) that do not exist in the repository.
+
+4. Rejected: `src/sentiment/market_analysis.py`
+   Reason:
+   - Conflicting duplicate definitions of `analyze_market_trends` (one method in class, one standalone function).
+   - Hardcodes `DATA_DIR = Path(__file__).parent / "data"` which conflicts with root data paths.
+   - Standalone execution attempts `.get()` on a list object, crashing with `AttributeError`.
+
+5. Rejected: `src/sentiment/recommendation_system.py`
+   Reason:
+   - Uses an arbitrary arithmetic formula (Market 30%, News 40%, Social 30%) with bizarre risk definitions.
+   - Only outputs "BUY" and "HOLD" variants; incapable of generating "SHORT" or "SELL" signals.
+   - Does not define Entry, Stop Loss, Take Profit, or Position Size.
+
+6. Rejected: `src/Prediction/main.ipynb`
+   Reason:
+   - Standalone Google Colab notebook completely disconnected from the Python backend.
+   - Cell 16 contains a dummy `execute_trade()` function that only prints `"Trade executed."`.
+   - Requires heavy TensorFlow/CUDA dependencies that add zero value to an LLM-assisted trading workflow.
+
+7. Rejected: Inline HTML UI from old `main.py`
+   Reason:
+   - 200 lines of raw HTML embedded inside a Python string.
+   - Lacks candlestick visualization, order execution tickets, risk guardrails, or post-trade reviews.
+   - Replaced by a clean, professional web dashboard with HTML5 canvas charting.
+
+============================================================
+NEW CODE (WRITTEN FROM SCRATCH)
+============================================================
+
+The following components were conceived, engineered, and implemented entirely from scratch
+specifically for the NAVEX Capital technical evaluation:
+
+1. AI Analyst Agent (`backend/agents/analyst_agent.py`)
+   - Implements multi-provider LLM integration (OpenAI, Gemini, Anthropic) with structured Pydantic output.
+   - Built-in deterministic quantitative reasoning engine for offline / keyless evaluation.
+   - Formulates deep structured `TradeThesis` covering bias, catalysts, confluences, risks, key levels,
+     and invalidation conditions.
+
+2. Pydantic Type & Schema Layer (`backend/core/schemas.py`)
+   - Defines strict schemas for `MarketContext`, `TradeThesis`, `TradeDecision`, `RiskAssessment`,
+     `SimulatedPosition`, `PostTradeReview`, `PortfolioState`, and `NewsItem`.
+   - Strictly disallows arbitrary unstructured LLM output as primary decision mechanism.
+
+3. Deterministic Risk Engine (`backend/risk/risk_engine.py`)
+   - Mathematical guardrails with absolute veto authority over AI proposals.
+   - Deterministic 1% equity position sizing: `Size = (Equity * Risk%) / abs(Entry - SL)`.
+   - Validates Long vs Short SL/TP orientation, minimum 1.5:1 R:R, stop bounds (0.3% to 8%), and leverage cap.
+
+4. Simulated Execution Engine (`backend/simulation/execution_engine.py`)
+   - Paper trading state machine: PENDING -> FILLED -> OPEN -> CLOSED.
+   - Realistic execution modeling with slippage (0.02%) and taker fees (0.05%).
+   - Dynamic bar evaluation checking Take Profit and Stop Loss triggers.
+   - Generates structured `TradeOutcome` upon trade closure.
+
+5. Portfolio Ledger (`backend/simulation/portfolio.py`)
+   - Virtual $100,000 capital management.
+   - Real-time mark-to-market unrealized P&L, realized P&L, margin locking, win rate, and equity curve ledger.
+
+6. Post-Trade AI Review Agent (`backend/agents/review_agent.py`)
+   - Rigorous post-mortem evaluator comparing original `TradeThesis` against actual market outcome.
+   - Generates structured `PostTradeReview` analyzing what worked, what failed, root cause ("Why?"),
+     and distills 1-2 actionable lessons.
+
+7. Episodic Trade Memory (`backend/memory/database.py`)
+   - Persistent SQLite storage (`navex_memory.db`) recording trade lifecycles, theses, reviews, and lessons.
+   - Retrieves prior trade learnings and injects them into subsequent AI Analyst contexts ("feedback-informed analysis").
+
+8. Historical Scenario Replay Engine (`backend/simulation/replay_engine.py`)
+   - Deterministic, bar-by-bar market simulation with 3 predefined scenarios (Bull Breakout, Bear Breakdown, Failed Breakout).
+   - Allows evaluators to step or auto-play bar-by-bar and witness the complete lifecycle.
+
+9. Interactive Dashboard (`frontend/index.html`, `frontend/css/dashboard.css`, `frontend/js/`)
+   - Canvas-based candlestick charting with EMA overlays (EMA 20, EMA 50) and trade levels (Entry, SL, TP).
+   - Displays Market Context, AI Thesis, Risk Guardrails checklist, Active Paper Position, and Post-Trade Review.
+
+10. REST API Layer (`backend/api/routes/trading.py`)
+    - RESTful FastAPI endpoints for all NAVEX lifecycle stages.
+
+11. Comprehensive Pytest Suite (`backend/tests/`)
+    - 17 unit and integration tests covering risk calculations, execution fills, slippage, fees, indicators,
+      microstructure, Pydantic validation, and SQLite persistence.

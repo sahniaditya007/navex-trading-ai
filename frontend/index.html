@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>NAVEX AI Trading — Autonomous Quantitative Prototype</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/static/css/dashboard.css" />
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="logo-icon">N</div>
+      <div class="brand-text">
+        <h1>NAVEX AI TRADING</h1>
+      </div>
+      <span class="badge-tag">Simulated Evaluation Prototype</span>
+    </div>
+
+    <div class="header-controls">
+      <div class="control-group">
+        <label for="assetSelect">Asset:</label>
+        <select id="assetSelect">
+          <option value="BTC/USDT" selected>BTC/USDT</option>
+          <option value="BTC/USD">BTC/USD</option>
+          <option value="ETH/USD">ETH/USD</option>
+          <option value="SOL/USD">SOL/USD</option>
+          <option value="XAU/USD">XAU/USD (Gold)</option>
+          <option value="EUR/USD">EUR/USD (Forex)</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="modeSelect">Mode:</label>
+        <select id="modeSelect">
+          <option value="replay" selected>Historical Scenario Replay</option>
+          <option value="demo">Public Market Data</option>
+          <option value="live" disabled>Live Exchange Data (disabled)</option>
+        </select>
+      </div>
+
+      <div class="control-group" id="scenarioGroup">
+        <label for="scenarioSelect">Scenario:</label>
+        <select id="scenarioSelect">
+          <option value="BTC_BULL_BREAKOUT" selected>BTC Bull Breakout (Win / TP)</option>
+          <option value="BTC_BEAR_BREAKDOWN">BTC Bear Breakdown (Short Win)</option>
+          <option value="BTC_FAILED_BREAKOUT">BTC Failed Breakout (Risk SL)</option>
+        </select>
+      </div>
+
+      <div class="control-group" id="replayControls">
+        <button id="btnReplayStep" class="btn btn-primary">Step 1 Bar</button>
+        <button id="btnAutoPlay" class="btn btn-secondary">Auto Play</button>
+      </div>
+
+      <button id="btnReset" class="btn btn-secondary" title="Reset portfolio to $100,000">Reset</button>
+    </div>
+  </header>
+
+  <!-- 5-Stage Workflow Ribbon -->
+  <div class="workflow-ribbon">
+    <div class="flow-step active" id="step-context">1. UNDERSTAND</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step" id="step-analysis">2. DECIDE</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step" id="step-execution">3. EXECUTE</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step" id="step-review">4. REVIEW</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step" id="step-memory">5. IMPROVE</div>
+  </div>
+
+  <!-- Main Grid -->
+  <main class="dashboard-grid">
+
+    <!-- LEFT COLUMN: Chart, Context, Portfolio & System Log -->
+    <div class="col-left">
+
+      <!-- Chart Panel -->
+      <section class="panel">
+        <div class="price-strip">
+          <div id="currentPrice" class="current-price">$64,180.00</div>
+          <div id="priceChange" class="price-change change-up">+1.45%</div>
+          <span style="color: #9ca3af; font-size: 0.8rem; margin-left: auto;">EMA 20 (<span style="color: #38bdf8;">Blue</span>) | EMA 50 (<span style="color: #fbbf24;">Yellow</span>)</span>
+        </div>
+
+        <div class="chart-container">
+          <canvas id="chartCanvas"></canvas>
+        </div>
+      </section>
+
+      <!-- Market Context Panel -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Market Context & Microstructure</div>
+          <button id="btnRefreshContext" class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 8px;">Refresh</button>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-label">Trend</div>
+            <div id="metricTrend" class="metric-value" style="color: #10b981;">BULLISH</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Structure</div>
+            <div id="metricStructure" class="metric-value" style="font-size: 0.85rem;">BULLISH_TREND</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">RSI (14)</div>
+            <div id="metricRsi" class="metric-value">73.1</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">ATR (14)</div>
+            <div id="metricAtr" class="metric-value">$274.80</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">EMA 20</div>
+            <div id="metricEma20" class="metric-value">$63,430.86</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">EMA 50</div>
+            <div id="metricEma50" class="metric-value">$63,391.43</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Spread</div>
+            <div id="metricSpread" class="metric-value">$51.34</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Depth Imbalance</div>
+            <div id="metricImbalance" class="metric-value" style="color: #10b981;">+0.27</div>
+          </div>
+        </div>
+
+        <!-- Curated News Ticker -->
+        <div style="margin-top: 14px;">
+          <div style="font-size: 0.75rem; text-transform: uppercase; color: #9ca3af; font-weight: 700; margin-bottom: 6px;">Relevant Market News / Catalysts:</div>
+          <div id="newsList" style="font-size: 0.8rem; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px;">
+            Loading headlines...
+          </div>
+        </div>
+      </section>
+
+      <!-- Portfolio Balance -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Simulated Portfolio Ledger ($100,000 Starting Virtual Capital)</div>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-label">Total Equity</div>
+            <div id="portEquity" class="metric-value" style="color: #3b82f6;">$100,000.00</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Available Cash</div>
+            <div id="portCash" class="metric-value">$100,000.00</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Realized P&L</div>
+            <div id="portRealizedPnl" class="metric-value">$0.00</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Win Rate</div>
+            <div id="portWinRate" class="metric-value">0.0% (0W / 0L)</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Real-Time Terminal Log -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">System Execution & Audit Stream</div>
+        </div>
+        <div id="terminalLog" class="log-box"></div>
+      </section>
+
+    </div>
+
+    <!-- RIGHT COLUMN: AI Thesis, Risk Guardrails, Paper Execution, Review & Memory -->
+    <div class="col-right">
+
+      <!-- AI Trade Thesis -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">AI Analyst Agent</div>
+          <button id="btnAnalyze" class="btn btn-primary">Run AI Analysis</button>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div id="thesisBiasBadge" class="thesis-bias-badge bias-NO_TRADE">AWAITING ANALYSIS</div>
+          <div id="thesisConfidence" style="font-size: 0.85rem; font-weight: 700; color: #9ca3af;">Confidence: --</div>
+        </div>
+
+        <div id="thesisText" class="thesis-body">
+          Click "Run AI Analysis" to formulate a structured TradeThesis incorporating technical momentum, order-book depth, and prior episodic trade memory.
+        </div>
+
+        <div style="font-size: 0.82rem; margin-top: 8px;">
+          <strong style="color: #9ca3af;">Invalidation Condition:</strong>
+          <span id="thesisInvalidation" style="color: #fca5a5;">--</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
+          <div>
+            <div style="font-size: 0.75rem; text-transform: uppercase; color: #10b981; font-weight: 700;">Supporting Confluences:</div>
+            <ul id="supportingList" class="factors-list supporting">
+              <li>Awaiting analysis...</li>
+            </ul>
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; text-transform: uppercase; color: #ef4444; font-weight: 700;">Conflicting Risks:</div>
+            <ul id="conflictingList" class="factors-list conflicting">
+              <li>Awaiting analysis...</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Deterministic Risk Engine -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Deterministic Risk Guardrails (1% Cap)</div>
+          <button id="btnValidateRisk" class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 8px;">Validate</button>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <span style="font-size: 0.85rem; color: #9ca3af;">Risk Engine Status:</span>
+          <span id="riskStatusBadge" class="risk-badge risk-APPROVED">APPROVED</span>
+        </div>
+
+        <div class="metrics-grid" style="margin-bottom: 12px;">
+          <div class="metric-card">
+            <div class="metric-label">Position Sized</div>
+            <div id="riskSizing" class="metric-value" style="font-size: 0.85rem;">--</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Risk/Reward</div>
+            <div id="riskReward" class="metric-value">--</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Stop Distance</div>
+            <div id="riskStopDist" class="metric-value">--</div>
+          </div>
+        </div>
+
+        <div style="font-size: 0.75rem; text-transform: uppercase; color: #9ca3af; font-weight: 700;">Deterministic Guardrail Checklist:</div>
+        <div id="riskChecklist" class="checklist">
+          <div class="check-item pass">
+            <span>Price Sanity Check</span>
+            <span style="color: #10b981; font-weight: 700;">PASS</span>
+          </div>
+          <div class="check-item pass">
+            <span>SL / TP Orientation Check</span>
+            <span style="color: #10b981; font-weight: 700;">PASS</span>
+          </div>
+          <div class="check-item pass">
+            <span>Minimum 1.5:1 R:R Check</span>
+            <span style="color: #10b981; font-weight: 700;">PASS</span>
+          </div>
+          <div class="check-item pass">
+            <span>1% Account Risk Sizing Formula</span>
+            <span style="color: #10b981; font-weight: 700;">PASS</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Simulated Paper Execution -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Simulated Execution (Zero Live Risk)</div>
+          <button id="btnExecute" class="btn btn-success" disabled>Simulate Trade</button>
+        </div>
+
+        <div id="executionParamsForm" style="display: none; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; margin-bottom: 12px;">
+          <div style="font-size: 0.75rem; text-transform: uppercase; color: #9ca3af; font-weight: 700; margin-bottom: 8px;">Simulated Order Parameters:</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div>
+              <label style="font-size: 0.75rem; color: #9ca3af; display: block;">ENTRY PRICE ($)</label>
+              <input type="number" step="any" id="inputEntry" style="width: 100%; margin-top: 2px;" />
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; color: #9ca3af; display: block;">POSITION SIZE</label>
+              <input type="number" step="any" id="inputSize" style="width: 100%; margin-top: 2px;" />
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; color: #ef4444; display: block;">STOP LOSS ($)</label>
+              <input type="number" step="any" id="inputStopLoss" style="width: 100%; margin-top: 2px;" />
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; color: #10b981; display: block;">TAKE PROFIT ($)</label>
+              <input type="number" step="any" id="inputTakeProfit" style="width: 100%; margin-top: 2px;" />
+            </div>
+          </div>
+        </div>
+
+        <div id="activePositionContainer">
+          <div style="color: #9ca3af; font-size: 0.85rem; padding: 10px;">
+            No active open position. Run analysis and click "Simulate Trade" to open paper position.
+          </div>
+        </div>
+      </section>
+
+      <!-- Post-Trade AI Review -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Post-Trade AI Review</div>
+        </div>
+        <div id="tradeReviewContainer">
+          <div style="color: #9ca3af; font-size: 0.85rem; padding: 8px;">
+            Post-trade AI review will be automatically synthesized when Take Profit or Stop Loss is triggered.
+          </div>
+        </div>
+      </section>
+
+      <!-- Episodic Decision Memory -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Episodic Decision Memory</div>
+        </div>
+        <div style="font-size: 0.78rem; color: #9ca3af; margin-bottom: 8px;">
+          Actionable trade lessons stored in SQLite and injected into subsequent AI Analyst prompts:
+        </div>
+        <div id="memoryContainer">
+          Loading memory...
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <script src="/static/js/chart.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
