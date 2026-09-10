@@ -54,3 +54,5 @@ build/
 .env.*
 !.env.example
 *.sqlite-journal
+
+.vercel
